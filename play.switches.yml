@@ -1,0 +1,55 @@
+# ansible-playbook -i ./inventory play.switches.yml
+# download configurations from Brocade ICX switches
+
+- name: Backup configuration from switches
+  hosts: switches
+  connection: local
+#  gather_facts: false
+
+  vars:
+    today_date: "{{ ansible_date_time.date }}"
+    time_stamp: "{{ ansible_date_time.date }}-{{ ansible_date_time.hour }}{{ ansible_date_time.minute }}"
+    tftp_server: 192.168.1.231
+    cfg_file: "{{ inventory_hostname }}-{{ time_stamp }}"
+    snmp_community: 1111111111
+
+  tasks:
+#    - debug: msg="Create backup file"
+    - name: Create backup files
+      local_action:
+        module: file
+        path: /tftpboot/{{ cfg_file }}
+        owner: ansible
+        group: ansible
+        mode: 0666
+        state: touch
+
+    - name: SNMP command
+      local_action: command /usr/bin/snmpset -v 2c -c {{ snmp_community }} {{ inventory_hostname }} 1.3.6.1.4.1.1991.1.1.2.1.5.0 a {{ tftp_server }} 1.3.6.1.4.1.1991.1.1.2.1.8.0 s {{ cfg_file }} 1.3.6.1.4.1.1991.1.1.2.1.9.0 integer 22
+
+
+    - name: Move files to backup storage
+      local_action:
+        module: copy
+        src: /tftpboot/{{ cfg_file }}
+        dest: "/mnt/backups/network/switches/{{ cfg_file }}"
+        owner: ansible
+        group: ansible
+        mode: 0644
+
+    - name: Delete files in tftpboot
+      local_action:
+        module: file
+        state: absent
+        path: /tftpboot/{{ cfg_file }}
+      
+    - name: Archive files
+      local_action:
+        module: archive
+        path: "/mnt/backups/network/switches/*"
+        dest: "/mnt/backups/network/switches/{{ today_date }}.tar.bz2"
+        remove: True
+        exclude_path: /mnt/backups/network/switches/*.tar.bz2
+        format: bz2
+      run_once: True
+      
