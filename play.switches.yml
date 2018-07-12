@@ -42,7 +42,7 @@
         module: file
         state: absent
         path: /tftpboot/{{ cfg_file }}
-      
+
     - name: Archive files
       local_action:
         module: archive
@@ -52,4 +52,4 @@
         exclude_path: /mnt/backups/network/switches/*.tar.bz2
         format: bz2
       run_once: True
-      
+
